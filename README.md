@@ -1,6 +1,7 @@
 # 🎊 Celebration & Event Planner (GenAI Assistant)
 
 > **PromptWars Virtual — Challenge 5 Submission**  
+> **Live Demo**: [https://celebration-event-planner-five.vercel.app](https://celebration-event-planner-five.vercel.app)  
 > An intelligent, production-ready GenAI-powered planning assistant designed to help users organize **Weddings**, **Birthdays**, and **Community Celebrations** with real-time budgets, interactive timelines, vendor checklists, and personalized creative concepts.
 
 ---
