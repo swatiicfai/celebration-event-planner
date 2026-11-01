@@ -140,6 +140,8 @@ export const Header: React.FC<HeaderProps> = memo(function Header({
               type="button"
               onClick={onOpenCreateModal}
               disabled={isLoading}
+              aria-haspopup="dialog"
+              aria-label="Open new event planning dialog"
               className="inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 rounded-xl shadow-sm shadow-rose-200 hover:shadow-md transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-rose-500"
             >
               {isLoading ? (

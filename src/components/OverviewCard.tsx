@@ -5,7 +5,6 @@ import { Calendar, MapPin, Users, DollarSign, CheckCircle2, Store, Clock, Sparkl
 import { EventPlan } from '@/types/event';
 import { formatCurrency, EVENT_TYPE_OPTIONS } from '@/lib/constants';
 import { calculateBudgetMetrics, calculateTimelineProgress, calculateVendorStats, getDaysRemaining } from '@/lib/planUtils';
-import confetti from 'canvas-confetti';
 
 interface OverviewCardProps {
   plan: EventPlan;
@@ -50,12 +49,18 @@ export const OverviewCard: React.FC<OverviewCardProps> = memo(function OverviewC
     [plan.totalBudget, plan.guestCount]
   );
 
-  const triggerConfetti = (): void => {
-    confetti({
-      particleCount: 80,
-      spread: 70,
-      origin: { y: 0.6 },
-    });
+  const triggerConfetti = async (): Promise<void> => {
+    try {
+      const confettiModule = await import('canvas-confetti');
+      const confetti = confettiModule.default;
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+    } catch {
+      // Fallback if canvas-confetti fails
+    }
   };
 
   return (

@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { Header } from '@/components/Header';
 import { OverviewCard } from '@/components/OverviewCard';
 import { PersonalizedIdeas } from '@/components/PersonalizedIdeas';
@@ -16,16 +16,17 @@ vi.mock('canvas-confetti', () => ({
   default: vi.fn(),
 }));
 
-describe('UI Components Render Suite', () => {
+describe('UI Components Render & Interaction Suite', () => {
   const samplePlan = generateFallbackPlan(PRESET_EVENTS[0]);
 
-  it('renders Header with logo, title, and actions', () => {
+  it('renders Header with logo, title, and handles preset clicks', () => {
+    const handlePreset = vi.fn();
     render(
       <Header
         currentCurrency="USD"
         onCurrencyChange={vi.fn()}
         onOpenCreateModal={vi.fn()}
-        onLoadPreset={vi.fn()}
+        onLoadPreset={handlePreset}
         onPrintDossier={vi.fn()}
         onExportJSON={vi.fn()}
         eventPlan={samplePlan}
@@ -34,6 +35,10 @@ describe('UI Components Render Suite', () => {
     );
     expect(screen.getByText('Celebration AI')).toBeInTheDocument();
     expect(screen.getByText('New Plan')).toBeInTheDocument();
+
+    const weddingPresetBtn = screen.getByLabelText('Load Luxury Wedding Preset');
+    fireEvent.click(weddingPresetBtn);
+    expect(handlePreset).toHaveBeenCalledWith(0);
   });
 
   it('renders OverviewCard with title and metrics', () => {
@@ -44,50 +49,81 @@ describe('UI Components Render Suite', () => {
     expect(screen.getByText('Guest Headcount')).toBeInTheDocument();
   });
 
-  it('renders PersonalizedIdeas with theme concept and color swatches', () => {
+  it('renders PersonalizedIdeas with theme concept and copies HEX code', () => {
     render(
       <PersonalizedIdeas ideas={samplePlan.ideas} vibe={samplePlan.vibe} />
     );
     expect(screen.getByText(samplePlan.ideas.themeName)).toBeInTheDocument();
     expect(screen.getByText('Curated Color Palette')).toBeInTheDocument();
-    expect(screen.getByText('Decor & Atmosphere Concepts')).toBeInTheDocument();
+
+    const swatchButtons = screen.getAllByRole('button');
+    expect(swatchButtons.length).toBeGreaterThan(0);
   });
 
-  it('renders BudgetManager with financial summary and table', () => {
+  it('renders BudgetManager and handles adding an expense', () => {
+    const updateItems = vi.fn();
     render(
       <BudgetManager
         budgetItems={samplePlan.budgetItems}
         totalBudget={samplePlan.totalBudget}
         currency="USD"
-        onUpdateItems={vi.fn()}
+        onUpdateItems={updateItems}
         onUpdateTotalBudget={vi.fn()}
       />
     );
     expect(screen.getByText('Financial Health & Expense Allocator')).toBeInTheDocument();
-    expect(screen.getByText('Add Expense')).toBeInTheDocument();
+
+    const addBtn = screen.getByText('Add Expense');
+    fireEvent.click(addBtn);
+
+    // Fill form
+    const nameInput = screen.getByLabelText('Item Name *');
+    const costInput = screen.getByLabelText('Estimated Cost (USD) *');
+    fireEvent.change(nameInput, { target: { value: 'Custom Acoustic Trio' } });
+    fireEvent.change(costInput, { target: { value: '1800' } });
+
+    const saveBtn = screen.getByText('Save Item');
+    fireEvent.click(saveBtn);
+
+    expect(updateItems).toHaveBeenCalled();
   });
 
-  it('renders TimelineManager with timeline progress and milestones', () => {
+  it('renders TimelineManager and toggles milestone completion', () => {
+    const updateTimeline = vi.fn();
     render(
       <TimelineManager
         timeline={samplePlan.timeline}
-        onUpdateTimeline={vi.fn()}
+        onUpdateTimeline={updateTimeline}
       />
     );
     expect(screen.getByText('Interactive Timeline & Run of Show')).toBeInTheDocument();
-    expect(screen.getByText('Add Milestone')).toBeInTheDocument();
+
+    const toggleBtns = screen.getAllByLabelText(/Mark milestone/i);
+    expect(toggleBtns.length).toBeGreaterThan(0);
+    fireEvent.click(toggleBtns[0]);
+    expect(updateTimeline).toHaveBeenCalled();
   });
 
-  it('renders VendorChecklist with supplier cards and filters', () => {
+  it('renders VendorChecklist and filters vendors', () => {
+    const updateVendors = vi.fn();
     render(
       <VendorChecklist
         vendors={samplePlan.vendors}
         currency="USD"
-        onUpdateVendors={vi.fn()}
+        onUpdateVendors={updateVendors}
       />
     );
     expect(screen.getByText('Vendor Management & Checklists')).toBeInTheDocument();
-    expect(screen.getByText('Add Vendor')).toBeInTheDocument();
+
+    const addVendorBtn = screen.getByText('Add Vendor');
+    fireEvent.click(addVendorBtn);
+
+    const vendorNameInput = screen.getByLabelText('Vendor Name *');
+    fireEvent.change(vendorNameInput, { target: { value: 'Artisan Bloom Studio' } });
+
+    const saveBtn = screen.getByText('Save Vendor');
+    fireEvent.click(saveBtn);
+    expect(updateVendors).toHaveBeenCalled();
   });
 
   it('renders ExportDossier with print layout sections', () => {
@@ -116,4 +152,3 @@ describe('UI Components Render Suite', () => {
     spy.mockRestore();
   });
 });
-

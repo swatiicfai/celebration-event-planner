@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GeneratePlanRequest, EventType, Currency } from '@/types/event';
 import { generateEventPlanWithAI } from '@/lib/gemini';
 import { checkRateLimit, sanitizeString, isValidISODate, clampInteger } from '@/lib/security';
+import { logger } from '@/lib/logger';
 
 const VALID_EVENT_TYPES: readonly EventType[] = [
   'wedding',
@@ -22,10 +23,27 @@ const VALID_CURRENCIES: readonly Currency[] = [
 ] as const;
 
 /**
+ * OPTIONS /api/generate-plan
+ * CORS preflight request handler.
+ */
+export async function OPTIONS(): Promise<NextResponse> {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
+}
+
+/**
  * POST /api/generate-plan
  *
  * Secure server-side endpoint that handles AI generation of comprehensive event plans.
- * Enforces rate limiting, strict input validation, XSS sanitization, and graceful fallback.
+ * Enforces rate limiting, prototype pollution protection, strict input validation,
+ * XSS sanitization, and graceful fallback.
  *
  * @param req - NextRequest object
  * @returns NextResponse with generated EventPlan data or structured error
@@ -56,10 +74,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // 2. Parse & Validate Payload
+    // 2. Parse & Validate Payload Text
+    const rawText = await req.text();
+    if (!rawText.trim()) {
+      return NextResponse.json(
+        { error: 'Empty request payload.' },
+        { status: 400 }
+      );
+    }
+
+    // Prototype Pollution Prevention in raw payload
+    if (rawText.includes('"__proto__"') || rawText.includes('"constructor"') || rawText.includes('"prototype"')) {
+      return NextResponse.json(
+        { error: 'Forbidden property detected in request payload.' },
+        { status: 400 }
+      );
+    }
+
     let body: unknown;
     try {
-      body = await req.json();
+      body = JSON.parse(rawText);
     } catch {
       return NextResponse.json(
         { error: 'Invalid JSON request payload.' },
@@ -142,7 +176,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     );
   } catch (error: unknown) {
-    console.error('Error in /api/generate-plan:', error);
+    logger.error('Error in /api/generate-plan:', error);
     return NextResponse.json(
       {
         error: 'Failed to process event plan generation. Please verify your inputs.',

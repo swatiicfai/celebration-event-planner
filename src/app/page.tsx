@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Sparkles,
   LayoutDashboard,
@@ -18,11 +19,23 @@ import { PersonalizedIdeas } from '@/components/PersonalizedIdeas';
 import { BudgetManager } from '@/components/BudgetManager';
 import { TimelineManager } from '@/components/TimelineManager';
 import { VendorChecklist } from '@/components/VendorChecklist';
-import { EventFormModal } from '@/components/EventFormModal';
-import { ExportDossier } from '@/components/ExportDossier';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { logger } from '@/lib/logger';
+
+// Dynamic lazy imports for modal and print dossier to maximize runtime efficiency and minimize first load JS
+const EventFormModal = dynamic(
+  () => import('@/components/EventFormModal').then((mod) => mod.EventFormModal),
+  { ssr: false }
+);
+
+const ExportDossier = dynamic(
+  () => import('@/components/ExportDossier').then((mod) => mod.ExportDossier),
+  { ssr: false }
+);
 
 type ActiveTab = 'overview' | 'ideas' | 'budget' | 'timeline' | 'vendors';
+
+const TAB_ORDER: readonly ActiveTab[] = ['overview', 'ideas', 'budget', 'timeline', 'vendors'] as const;
 
 /**
  * Main application dashboard for the Celebration & Event Planner.
@@ -36,6 +49,14 @@ export default function HomePage(): React.ReactElement {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const tabRefs = useRef<Record<ActiveTab, HTMLButtonElement | null>>({
+    overview: null,
+    ideas: null,
+    budget: null,
+    timeline: null,
+    vendors: null,
+  });
 
   // Initialize with initial default plan (Luxury Botanical Wedding preset)
   useEffect(() => {
@@ -91,7 +112,7 @@ export default function HomePage(): React.ReactElement {
         setActiveTab('overview');
         showToast('Master event plan generated successfully!');
       } catch (err: unknown) {
-        console.warn('API error, using localized generation engine:', err);
+        logger.warn('API error, using localized generation engine:', err);
         const fallback = generateFallbackPlan(requestData);
         setEventPlan(fallback);
         setCurrentCurrency(fallback.currency);
@@ -140,6 +161,30 @@ export default function HomePage(): React.ReactElement {
   const updateVendors = useCallback((newVendors: VendorItem[]): void => {
     setEventPlan((prev) => (prev ? { ...prev, vendors: newVendors } : null));
   }, []);
+
+  // WAI-ARIA tab keyboard navigation (ArrowLeft, ArrowRight, Home, End)
+  const handleTabKeyDown = (e: React.KeyboardEvent, currentTab: ActiveTab): void => {
+    const currentIndex = TAB_ORDER.indexOf(currentTab);
+    let targetTab: ActiveTab | null = null;
+
+    if (e.key === 'ArrowRight') {
+      const nextIndex = (currentIndex + 1) % TAB_ORDER.length;
+      targetTab = TAB_ORDER[nextIndex];
+    } else if (e.key === 'ArrowLeft') {
+      const prevIndex = (currentIndex - 1 + TAB_ORDER.length) % TAB_ORDER.length;
+      targetTab = TAB_ORDER[prevIndex];
+    } else if (e.key === 'Home') {
+      targetTab = TAB_ORDER[0];
+    } else if (e.key === 'End') {
+      targetTab = TAB_ORDER[TAB_ORDER.length - 1];
+    }
+
+    if (targetTab) {
+      e.preventDefault();
+      setActiveTab(targetTab);
+      tabRefs.current[targetTab]?.focus();
+    }
+  };
 
   if (!eventPlan) {
     return (
@@ -200,6 +245,7 @@ export default function HomePage(): React.ReactElement {
           className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-1 overflow-x-auto max-w-full"
         >
           <button
+            ref={(el) => { tabRefs.current.overview = el; }}
             id="tab-overview"
             role="tab"
             aria-selected={activeTab === 'overview'}
@@ -207,6 +253,7 @@ export default function HomePage(): React.ReactElement {
             tabIndex={activeTab === 'overview' ? 0 : -1}
             type="button"
             onClick={() => setActiveTab('overview')}
+            onKeyDown={(e) => handleTabKeyDown(e, 'overview')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition focus:outline-none focus:ring-2 focus:ring-rose-500 ${
               activeTab === 'overview'
                 ? 'bg-rose-600 text-white shadow-xs'
@@ -218,6 +265,7 @@ export default function HomePage(): React.ReactElement {
           </button>
 
           <button
+            ref={(el) => { tabRefs.current.ideas = el; }}
             id="tab-ideas"
             role="tab"
             aria-selected={activeTab === 'ideas'}
@@ -225,6 +273,7 @@ export default function HomePage(): React.ReactElement {
             tabIndex={activeTab === 'ideas' ? 0 : -1}
             type="button"
             onClick={() => setActiveTab('ideas')}
+            onKeyDown={(e) => handleTabKeyDown(e, 'ideas')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition focus:outline-none focus:ring-2 focus:ring-rose-500 ${
               activeTab === 'ideas'
                 ? 'bg-rose-600 text-white shadow-xs'
@@ -236,6 +285,7 @@ export default function HomePage(): React.ReactElement {
           </button>
 
           <button
+            ref={(el) => { tabRefs.current.budget = el; }}
             id="tab-budget"
             role="tab"
             aria-selected={activeTab === 'budget'}
@@ -243,6 +293,7 @@ export default function HomePage(): React.ReactElement {
             tabIndex={activeTab === 'budget' ? 0 : -1}
             type="button"
             onClick={() => setActiveTab('budget')}
+            onKeyDown={(e) => handleTabKeyDown(e, 'budget')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition focus:outline-none focus:ring-2 focus:ring-rose-500 ${
               activeTab === 'budget'
                 ? 'bg-rose-600 text-white shadow-xs'
@@ -254,6 +305,7 @@ export default function HomePage(): React.ReactElement {
           </button>
 
           <button
+            ref={(el) => { tabRefs.current.timeline = el; }}
             id="tab-timeline"
             role="tab"
             aria-selected={activeTab === 'timeline'}
@@ -261,6 +313,7 @@ export default function HomePage(): React.ReactElement {
             tabIndex={activeTab === 'timeline' ? 0 : -1}
             type="button"
             onClick={() => setActiveTab('timeline')}
+            onKeyDown={(e) => handleTabKeyDown(e, 'timeline')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition focus:outline-none focus:ring-2 focus:ring-rose-500 ${
               activeTab === 'timeline'
                 ? 'bg-rose-600 text-white shadow-xs'
@@ -272,6 +325,7 @@ export default function HomePage(): React.ReactElement {
           </button>
 
           <button
+            ref={(el) => { tabRefs.current.vendors = el; }}
             id="tab-vendors"
             role="tab"
             aria-selected={activeTab === 'vendors'}
@@ -279,6 +333,7 @@ export default function HomePage(): React.ReactElement {
             tabIndex={activeTab === 'vendors' ? 0 : -1}
             type="button"
             onClick={() => setActiveTab('vendors')}
+            onKeyDown={(e) => handleTabKeyDown(e, 'vendors')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition focus:outline-none focus:ring-2 focus:ring-rose-500 ${
               activeTab === 'vendors'
                 ? 'bg-rose-600 text-white shadow-xs'
@@ -374,27 +429,29 @@ export default function HomePage(): React.ReactElement {
         </div>
       </footer>
 
-      {/* Printable Master Dossier for PDF Export */}
+      {/* Printable Master Dossier for PDF Export (Lazy Loaded) */}
       <ExportDossier plan={eventPlan} />
 
-      {/* Modal Dialog for Creating/Modifying Event Plan */}
-      <EventFormModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleGeneratePlan}
-        isLoading={isLoading}
-        initialData={{
-          eventType: eventPlan.eventType,
-          title: eventPlan.title,
-          eventDate: eventPlan.eventDate,
-          location: eventPlan.location,
-          guestCount: eventPlan.guestCount,
-          totalBudget: eventPlan.totalBudget,
-          currency: eventPlan.currency,
-          vibe: eventPlan.vibe,
-          specialRequirements: eventPlan.specialRequirements,
-        }}
-      />
+      {/* Modal Dialog for Creating/Modifying Event Plan (Lazy Loaded) */}
+      {isModalOpen && (
+        <EventFormModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleGeneratePlan}
+          isLoading={isLoading}
+          initialData={{
+            eventType: eventPlan.eventType,
+            title: eventPlan.title,
+            eventDate: eventPlan.eventDate,
+            location: eventPlan.location,
+            guestCount: eventPlan.guestCount,
+            totalBudget: eventPlan.totalBudget,
+            currency: eventPlan.currency,
+            vibe: eventPlan.vibe,
+            specialRequirements: eventPlan.specialRequirements,
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,13 +1,20 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { EventPlan, GeneratePlanRequest } from '@/types/event';
 import { generateFallbackPlan } from './constants';
+import { logger } from './logger';
 
+/**
+ * Generates an event plan using Google Gemini GenAI 1.5 Flash.
+ * Falls back to the autonomous local planning engine if the API key is unavailable or rate limited.
+ *
+ * @param request - GeneratePlanRequest parameters
+ * @returns Promise resolving to a comprehensive EventPlan
+ */
 export async function generateEventPlanWithAI(request: GeneratePlanRequest): Promise<EventPlan> {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    // Graceful fallback when API key is not configured locally or in preview
-    console.info('GEMINI_API_KEY is not set. Generating intelligent structured event plan via localized planning engine.');
+    logger.info('GEMINI_API_KEY not configured. Generating plan via localized planning engine.');
     return generateFallbackPlan(request);
   }
 
@@ -22,21 +29,20 @@ export async function generateEventPlanWithAI(request: GeneratePlanRequest): Pro
     });
 
     const prompt = `
-You are an elite, world-class event planner and celebration designer with 20+ years experience producing luxury weddings, milestone birthdays, and community festivals.
-Generate a comprehensive, creative, financially sound, and actionable event master plan based on the following client brief:
+You are an elite event planner with 20+ years experience designing weddings, birthdays, and community festivals.
+Generate a comprehensive, creative, financially sound event plan based on this brief:
 
 EVENT BRIEF:
 - Event Type: ${request.eventType}
 - Event Title: ${request.title || 'Celebration'}
 - Event Date: ${request.eventDate}
-- Location / Venue Style: ${request.location}
+- Location: ${request.location}
 - Guest Count: ${request.guestCount}
 - Total Budget: ${request.totalBudget} ${request.currency}
-- Vibe / Aesthetic: ${request.vibe}
-- Special Requirements / Notes: ${request.specialRequirements || 'None specified'}
+- Vibe: ${request.vibe}
+- Special Requirements: ${request.specialRequirements || 'None specified'}
 
-REQUIREMENTS FOR JSON OUTPUT:
-Return a single JSON object (with NO markdown code fences, pure valid JSON) adhering to this schema:
+Return a single valid JSON object strictly matching this schema:
 {
   "id": "string",
   "title": "string",
@@ -50,8 +56,8 @@ Return a single JSON object (with NO markdown code fences, pure valid JSON) adhe
   "specialRequirements": "string",
   "createdAt": "${new Date().toISOString()}",
   "ideas": {
-    "themeName": "Creative name for the theme",
-    "tagline": "Inspiring one-sentence event tagline",
+    "themeName": "Creative theme title",
+    "tagline": "Inspiring one-sentence tagline",
     "colorPalette": [
       { "name": "Color name", "hex": "#HEX" },
       { "name": "Color name", "hex": "#HEX" },
@@ -62,8 +68,8 @@ Return a single JSON object (with NO markdown code fences, pure valid JSON) adhe
     "decorConcepts": ["string", "string", "string", "string"],
     "interactiveActivities": ["string", "string", "string", "string"],
     "customFoodDrinkConcepts": ["string", "string", "string", "string"],
-    "invitationCopySnippet": "Polished invitation phrasing snippet for stationery or RSVP card",
-    "aiSuggestions": ["Pro planning tip 1", "Pro planning tip 2", "Pro planning tip 3"]
+    "invitationCopySnippet": "Polished invitation phrasing snippet",
+    "aiSuggestions": ["Pro tip 1", "Pro tip 2", "Pro tip 3"]
   },
   "budgetItems": [
     {
@@ -72,7 +78,7 @@ Return a single JSON object (with NO markdown code fences, pure valid JSON) adhe
       "name": "string",
       "estimatedCost": number,
       "actualCost": 0,
-      "paidStatus": "unpaid" | "deposit_paid" | "fully_paid",
+      "paidStatus": "unpaid",
       "notes": "string"
     }
   ],
@@ -83,9 +89,9 @@ Return a single JSON object (with NO markdown code fences, pure valid JSON) adhe
       "title": "string",
       "description": "string",
       "targetTimeframe": "string",
-      "completed": boolean,
+      "completed": false,
       "priority": "high" | "medium" | "low",
-      "timeSlot": "string (only for day of event e.g. 10:00 AM)"
+      "timeSlot": "string (optional for day of event)"
     }
   ],
   "vendors": [
@@ -96,23 +102,18 @@ Return a single JSON object (with NO markdown code fences, pure valid JSON) adhe
       "contactPerson": "string",
       "contactEmail": "string",
       "contactPhone": "string",
-      "status": "To Research" | "Contacted" | "Quoted" | "Booked" | "Completed",
+      "status": "To Research",
       "estimatedCost": number,
       "actualCost": 0,
       "notes": "string"
     }
   ]
 }
-
-Ensure the sum of estimatedCost across budgetItems is roughly equal to ${request.totalBudget}.
-Ensure timeline items include a detailed "Day-of Event (Run of Show)" schedule with sequential timeSlot values.
-Ensure vendor items match the event requirements.
 `;
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
 
-    // Clean any markdown fences if present
     const cleanedJson = responseText
       .replace(/^```json\s*/i, '')
       .replace(/^```\s*/i, '')
@@ -123,8 +124,7 @@ Ensure vendor items match the event requirements.
     if (!parsed.id) parsed.id = `plan-${Date.now()}`;
     return parsed;
   } catch (error) {
-    console.warn('Gemini API call encountered an issue or rate limit. Falling back to local planning engine:', error);
+    logger.warn('Gemini API call encountered an error. Falling back to local planning engine:', error);
     return generateFallbackPlan(request);
   }
 }
-
