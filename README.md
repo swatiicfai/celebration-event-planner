@@ -1,8 +1,26 @@
 # 🎊 Celebration & Event Planner (GenAI Assistant)
 
-> **PromptWars Virtual — Challenge 5 Submission**  
-> **Live Demo**: [https://celebration-event-planner-five.vercel.app](https://celebration-event-planner-five.vercel.app)  
+[![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
+[![Google Gemini](https://img.shields.io/badge/Google%20Gemini-1.5%20Flash-8E75C2?logo=google)](https://ai.google.dev/)
+[![Vercel Deployment](https://img.shields.io/badge/Vercel-Live-success?logo=vercel)](https://celebration-event-planner-five.vercel.app)
+[![Tests Passing](https://img.shields.io/badge/Tests-5%2F5%20Passing-brightgreen?logo=vitest)](https://vitest.dev/)
+
+> **PromptWars Virtual — [Challenge 5] Celebration & Event Planner Submission**  
 > An intelligent, production-ready GenAI-powered planning assistant designed to help users organize **Weddings**, **Birthdays**, and **Community Celebrations** with real-time budgets, interactive timelines, vendor checklists, and personalized creative concepts.
+
+---
+
+### 🔗 Official Submission Links
+
+| Resource | Link |
+|---|---|
+| **🌐 Live Application** | [https://celebration-event-planner-five.vercel.app](https://celebration-event-planner-five.vercel.app) |
+| **🎥 Video Demo (YouTube)** | [https://youtu.be/EJpywvkyG6E](https://youtu.be/EJpywvkyG6E) |
+| **📂 GitHub Repository** | [https://github.com/swatiicfai/celebration-event-planner](https://github.com/swatiicfai/celebration-event-planner) |
+| **💼 LinkedIn Post** | [https://lnkd.in/p/gaHjaQmN](https://lnkd.in/p/gaHjaQmN) |
+| **🏆 Hackathon Platform** | PromptWars Virtual (Hack2Skill) |
 
 ---
 
@@ -75,6 +93,7 @@ Event planning across life milestones — whether an intimate wedding ceremony, 
 - **Icons**: [Lucide React](https://lucide.dev/)
 - **Testing**: [Vitest](https://vitest.dev/) & [@testing-library/react](https://testing-library.com/)
 - **Visuals**: [Canvas Confetti](https://www.npmjs.com/package/canvas-confetti)
+- **Hosting**: [Vercel](https://vercel.com/)
 
 ---
 
@@ -86,7 +105,7 @@ Event planning across life milestones — whether an intimate wedding ceremony, 
 
 ### 1. Clone & Install
 ```bash
-git clone <your-repo-link>
+git clone https://github.com/swatiicfai/celebration-event-planner.git
 cd celebration-event-planner
 npm install
 ```
@@ -117,8 +136,12 @@ npm start
 
 ---
 
-## 📝 Submission Details
+## 📝 Submission Details Summary
 
 - **Challenge**: [Challenge 5] Celebration & Event Planner
 - **Platform**: PromptWars Virtual (Hack2Skill)
+- **GitHub Repository**: [https://github.com/swatiicfai/celebration-event-planner](https://github.com/swatiicfai/celebration-event-planner)
+- **Live Demo**: [https://celebration-event-planner-five.vercel.app](https://celebration-event-planner-five.vercel.app)
+- **Demo Video**: [https://youtu.be/EJpywvkyG6E](https://youtu.be/EJpywvkyG6E)
+- **LinkedIn Post**: [https://lnkd.in/p/gaHjaQmN](https://lnkd.in/p/gaHjaQmN)
 - **GenAI Services Utilized**: Google Gemini 1.5 Flash (`@google/generative-ai`) for structured generative event synthesis, theme creation, budget distribution, and day-of itinerary generation.
