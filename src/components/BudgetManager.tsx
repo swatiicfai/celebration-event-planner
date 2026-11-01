@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import { DollarSign, Plus, Trash2 } from 'lucide-react';
 import { BudgetItem, Currency } from '@/types/event';
 import { formatCurrency } from '@/lib/constants';
@@ -14,7 +14,7 @@ interface BudgetManagerProps {
   onUpdateTotalBudget: (newBudget: number) => void;
 }
 
-const CATEGORIES: BudgetItem['category'][] = [
+const CATEGORIES: readonly BudgetItem['category'][] = [
   'Venue',
   'Catering & Drinks',
   'Decor & Flowers',
@@ -23,15 +23,19 @@ const CATEGORIES: BudgetItem['category'][] = [
   'Attire & Beauty',
   'Stationery & Favors',
   'Logistics & Misc',
-];
+] as const;
 
-export const BudgetManager: React.FC<BudgetManagerProps> = ({
+/**
+ * Smart Budget & Financial Allocator component providing ledger tracking,
+ * category expenditure breakdown, and live over-budget alerts.
+ */
+export const BudgetManager: React.FC<BudgetManagerProps> = memo(function BudgetManager({
   budgetItems,
   totalBudget,
   currency,
   onUpdateItems,
   onUpdateTotalBudget,
-}) => {
+}): React.ReactElement {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -41,17 +45,28 @@ export const BudgetManager: React.FC<BudgetManagerProps> = ({
   const [newItemEstimated, setNewItemEstimated] = useState('');
   const [newItemNotes, setNewItemNotes] = useState('');
 
-  const metrics = calculateBudgetMetrics(budgetItems, totalBudget);
+  const metrics = useMemo(
+    () => calculateBudgetMetrics(budgetItems, totalBudget),
+    [budgetItems, totalBudget]
+  );
 
-  const handleAddItem = (e: React.FormEvent) => {
+  const filteredItems = useMemo(
+    () =>
+      selectedCategory === 'all'
+        ? budgetItems
+        : budgetItems.filter((item) => item.category === selectedCategory),
+    [budgetItems, selectedCategory]
+  );
+
+  const handleAddItem = (e: React.FormEvent): void => {
     e.preventDefault();
     if (!newItemName.trim() || !newItemEstimated) return;
 
     const newItem: BudgetItem = {
-      id: `custom-b-${Date.now()}`,
-      category: newItemCategory,
+      id: `item-${Date.now()}`,
       name: newItemName.trim(),
-      estimatedCost: Number(newItemEstimated) || 0,
+      category: newItemCategory,
+      estimatedCost: Math.max(0, parseFloat(newItemEstimated) || 0),
       actualCost: 0,
       paidStatus: 'unpaid',
       notes: newItemNotes.trim(),
@@ -64,115 +79,138 @@ export const BudgetManager: React.FC<BudgetManagerProps> = ({
     setShowAddForm(false);
   };
 
-  const handleUpdateItem = (id: string, updates: Partial<BudgetItem>) => {
-    onUpdateItems(
-      budgetItems.map((item) => (item.id === id ? { ...item, ...updates } : item))
-    );
-  };
-
-  const handleDeleteItem = (id: string) => {
+  const handleDeleteItem = (id: string): void => {
     onUpdateItems(budgetItems.filter((item) => item.id !== id));
   };
 
-  const filteredItems = selectedCategory === 'all'
-    ? budgetItems
-    : budgetItems.filter((item) => item.category === selectedCategory);
+  const handleActualCostChange = (id: string, costStr: string): void => {
+    const cost = Math.max(0, parseFloat(costStr) || 0);
+    onUpdateItems(
+      budgetItems.map((item) => (item.id === id ? { ...item, actualCost: cost } : item))
+    );
+  };
 
-  const budgetUsagePercent = totalBudget > 0 ? Math.min(Math.round((metrics.totalEstimated / totalBudget) * 100), 100) : 0;
+  const handlePaidStatusChange = (id: string, status: BudgetItem['paidStatus']): void => {
+    onUpdateItems(
+      budgetItems.map((item) => (item.id === id ? { ...item, paidStatus: status } : item))
+    );
+  };
 
   return (
     <div className="space-y-6">
-      {/* Top Summary Banner */}
-      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+      {/* Financial Health Summary Banner */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
           <div>
             <div className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-emerald-600" />
-              <h3 className="text-xl font-bold text-slate-900">Budget & Financial Allocator</h3>
+              <DollarSign className="w-5 h-5 text-emerald-600" aria-hidden="true" />
+              <h2 className="text-xl font-extrabold text-slate-900">
+                Financial Health & Expense Allocator
+              </h2>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Track estimated quotes, actual invoices, and paid deposits in real-time.
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Track planned estimates against contracted actuals and paid vendor deposits.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-500">Max Budget Cap:</span>
-            <div className="relative">
-              <input
-                type="number"
-                value={totalBudget}
-                onChange={(e) => onUpdateTotalBudget(Math.max(0, Number(e.target.value) || 0))}
-                className="w-32 px-3 py-1.5 text-sm font-bold text-slate-800 bg-slate-100 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white"
-                min="0"
-                step="500"
-              />
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <label htmlFor="edit-total-budget" className="text-xs text-slate-400 block font-medium">
+                Target Budget
+              </label>
+              <div className="flex items-center gap-1 font-mono font-bold text-slate-900">
+                <span>{currency}</span>
+                <input
+                  id="edit-total-budget"
+                  type="number"
+                  aria-label="Edit total target budget"
+                  value={totalBudget}
+                  onChange={(e) => onUpdateTotalBudget(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-28 text-right bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Progress Bar & Stat Pills */}
-        <div className="pt-5 space-y-3">
-          <div className="flex justify-between items-center text-xs font-semibold text-slate-700">
-            <span>Estimated Allocation ({budgetUsagePercent}%)</span>
-            <span className={metrics.isOverBudget ? 'text-rose-600' : 'text-emerald-700'}>
-              {metrics.isOverBudget
-                ? `Exceeds budget by ${formatCurrency(Math.abs(metrics.variance), currency)}!`
-                : `${formatCurrency(metrics.remainingBudget, currency)} unallocated reserve remaining`}
+        {/* Financial KPI Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+            <span className="text-xs font-semibold text-slate-500 block">Planned (Estimated)</span>
+            <span className="text-lg sm:text-xl font-extrabold text-slate-900">
+              {formatCurrency(metrics.totalEstimated, currency)}
             </span>
           </div>
 
-          <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden flex">
-            <div
-              className={`h-full transition-all duration-500 ${
-                metrics.isOverBudget ? 'bg-rose-500' : 'bg-gradient-to-r from-emerald-500 to-teal-500'
-              }`}
-              style={{ width: `${Math.min(budgetUsagePercent, 100)}%` }}
-            />
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+            <span className="text-xs font-semibold text-slate-500 block">Actual Invoiced</span>
+            <span className="text-lg sm:text-xl font-extrabold text-slate-900">
+              {formatCurrency(metrics.totalActual, currency)}
+            </span>
           </div>
 
-          {/* Quick Metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <span className="text-2xs uppercase tracking-wider text-slate-400 font-bold">Total Estimated</span>
-              <p className="text-sm sm:text-base font-bold text-slate-800">
-                {formatCurrency(metrics.totalEstimated, currency)}
-              </p>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <span className="text-2xs uppercase tracking-wider text-slate-400 font-bold">Actual Invoiced</span>
-              <p className="text-sm sm:text-base font-bold text-slate-800">
-                {formatCurrency(metrics.totalActual, currency)}
-              </p>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <span className="text-2xs uppercase tracking-wider text-slate-400 font-bold">Deposits / Paid</span>
-              <p className="text-sm sm:text-base font-bold text-emerald-700">
-                {formatCurrency(metrics.totalPaid, currency)}
-              </p>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <span className="text-2xs uppercase tracking-wider text-slate-400 font-bold">Remaining Buffer</span>
-              <p className={`text-sm sm:text-base font-bold ${metrics.remainingBudget < 0 ? 'text-rose-600' : 'text-slate-800'}`}>
-                {formatCurrency(metrics.remainingBudget, currency)}
-              </p>
-            </div>
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+            <span className="text-xs font-semibold text-slate-500 block">Deposits Paid</span>
+            <span className="text-lg sm:text-xl font-extrabold text-emerald-600">
+              {formatCurrency(metrics.totalPaid, currency)}
+            </span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+            <span className="text-xs font-semibold text-slate-500 block">
+              {metrics.isOverBudget ? 'Budget Deficit' : 'Remaining Cushion'}
+            </span>
+            <span
+              className={`text-lg sm:text-xl font-extrabold ${
+                metrics.isOverBudget ? 'text-rose-600' : 'text-slate-900'
+              }`}
+            >
+              {formatCurrency(Math.abs(metrics.remainingBudget), currency)}
+            </span>
+          </div>
+        </div>
+
+        {/* Visual Budget Allocation Bar */}
+        <div className="mt-6">
+          <div className="flex justify-between text-xs font-semibold mb-2 text-slate-600">
+            <span>Budget Utilization</span>
+            <span>
+              {totalBudget > 0
+                ? Math.min(100, Math.round((metrics.totalEstimated / totalBudget) * 100))
+                : 0}
+              % Allocated
+            </span>
+          </div>
+          <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden flex" role="progressbar" aria-valuenow={Math.min(100, Math.round((metrics.totalEstimated / Math.max(1, totalBudget)) * 100))} aria-valuemin={0} aria-valuemax={100}>
+            <div
+              className={`h-full transition-all duration-500 ${
+                metrics.isOverBudget
+                  ? 'bg-rose-500'
+                  : metrics.totalEstimated / totalBudget > 0.9
+                  ? 'bg-amber-500'
+                  : 'bg-emerald-500'
+              }`}
+              style={{
+                width: `${Math.min(100, (metrics.totalEstimated / Math.max(1, totalBudget)) * 100)}%`,
+              }}
+            />
           </div>
         </div>
       </div>
 
-      {/* Filter Chips & Add Button */}
+      {/* Filter and Add Item Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 sm:pb-0" role="group" aria-label="Filter budget items by category">
           <button
             type="button"
             onClick={() => setSelectedCategory('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition focus:outline-none focus:ring-2 focus:ring-rose-500 ${
               selectedCategory === 'all'
-                ? 'bg-slate-900 text-white shadow-xs'
+                ? 'bg-slate-900 text-white'
                 : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
             }`}
           >
-            All Categories ({budgetItems.length})
+            All Items ({budgetItems.length})
           </button>
           {CATEGORIES.map((cat) => {
             const count = budgetItems.filter((i) => i.category === cat).length;
@@ -182,9 +220,9 @@ export const BudgetManager: React.FC<BudgetManagerProps> = ({
                 key={cat}
                 type="button"
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition focus:outline-none focus:ring-2 focus:ring-rose-500 ${
                   selectedCategory === cat
-                    ? 'bg-emerald-700 text-white shadow-xs'
+                    ? 'bg-slate-900 text-white'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                 }`}
               >
@@ -197,131 +235,160 @@ export const BudgetManager: React.FC<BudgetManagerProps> = ({
         <button
           type="button"
           onClick={() => setShowAddForm(!showAddForm)}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition self-start sm:self-auto"
+          aria-expanded={showAddForm}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition shadow-xs self-start sm:self-auto focus:outline-none focus:ring-2 focus:ring-rose-500"
         >
-          <Plus className="w-4 h-4" />
-          <span>{showAddForm ? 'Cancel' : 'Add Expense Item'}</span>
+          <Plus className="w-4 h-4" aria-hidden="true" />
+          <span>{showAddForm ? 'Cancel' : 'Add Expense'}</span>
         </button>
       </div>
 
-      {/* Add Expense Form Modal / Card */}
+      {/* Add New Item Form Drawer */}
       {showAddForm && (
-        <form onSubmit={handleAddItem} className="bg-white rounded-3xl p-6 border-2 border-emerald-300 shadow-sm space-y-4">
-          <h4 className="text-sm font-bold text-slate-900">Add New Budget Expense Item</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <form
+          onSubmit={handleAddItem}
+          className="bg-white rounded-3xl p-6 border border-rose-200/80 shadow-md space-y-4"
+        >
+          <h3 className="text-sm font-bold text-slate-900">Add New Budget Item</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Item / Service Name *</label>
+              <label htmlFor="expense-name" className="text-xs font-semibold text-slate-700 block mb-1">
+                Item Name *
+              </label>
               <input
+                id="expense-name"
                 type="text"
                 required
-                placeholder="e.g. Vintage Champagne Toast"
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500"
+                placeholder="e.g. Wedding Cake & Dessert Table"
+                className="w-full text-xs rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rose-500"
               />
             </div>
+
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Category</label>
+              <label htmlFor="expense-category" className="text-xs font-semibold text-slate-700 block mb-1">
+                Category *
+              </label>
               <select
+                id="expense-category"
                 value={newItemCategory}
                 onChange={(e) => setNewItemCategory(e.target.value as BudgetItem['category'])}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500"
+                className="w-full text-xs rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rose-500"
               >
                 {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
                 ))}
               </select>
             </div>
+
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Estimated Cost ({currency}) *</label>
+              <label htmlFor="expense-cost" className="text-xs font-semibold text-slate-700 block mb-1">
+                Estimated Cost ({currency}) *
+              </label>
               <input
+                id="expense-cost"
                 type="number"
                 required
                 min="0"
-                placeholder="e.g. 750"
                 value={newItemEstimated}
                 onChange={(e) => setNewItemEstimated(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500"
+                placeholder="1500"
+                className="w-full text-xs rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rose-500"
               />
             </div>
           </div>
+
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Notes / Vendor details (Optional)</label>
+            <label htmlFor="expense-notes" className="text-xs font-semibold text-slate-700 block mb-1">
+              Notes / Deliverables
+            </label>
             <input
+              id="expense-notes"
               type="text"
-              placeholder="e.g. Includes flutes and delivery"
               value={newItemNotes}
               onChange={(e) => setNewItemNotes(e.target.value)}
-              className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500"
+              placeholder="e.g. 3 tiers, red velvet & champagne flavor with vegan gluten-free cupcakes"
+              className="w-full text-xs rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rose-500"
             />
           </div>
+
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
               onClick={() => setShowAddForm(false)}
-              className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
+              className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-sm"
+              className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition shadow-xs"
             >
-              Add Item
+              Save Item
             </button>
           </div>
         </form>
       )}
 
-      {/* Expenses Table */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+      {/* Itemized Budget Table */}
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50/80 text-slate-500 font-semibold border-b border-slate-200">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
               <tr>
-                <th className="p-4">Item & Category</th>
-                <th className="p-4">Estimated</th>
-                <th className="p-4">Actual Cost</th>
-                <th className="p-4">Payment Status</th>
-                <th className="p-4">Notes</th>
-                <th className="p-4 text-right no-print">Actions</th>
+                <th scope="col" className="px-4 py-3.5">Category & Item</th>
+                <th scope="col" className="px-4 py-3.5">Estimated</th>
+                <th scope="col" className="px-4 py-3.5">Actual Invoiced</th>
+                <th scope="col" className="px-4 py-3.5">Payment Status</th>
+                <th scope="col" className="px-4 py-3.5">Notes</th>
+                <th scope="col" className="px-4 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredItems.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50/50 transition">
-                  <td className="p-4">
-                    <div className="font-bold text-slate-900 text-sm">{item.name}</div>
-                    <span className="inline-block mt-0.5 px-2 py-0.5 text-2xs font-semibold rounded-md bg-slate-100 text-slate-600">
+                <tr key={item.id} className="hover:bg-slate-50/80 transition">
+                  <td className="px-4 py-3.5">
+                    <span className="font-bold text-slate-900 block">{item.name}</span>
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase">
                       {item.category}
                     </span>
                   </td>
-                  <td className="p-4 font-semibold text-slate-800">
+
+                  <td className="px-4 py-3.5 font-semibold text-slate-700">
                     {formatCurrency(item.estimatedCost, currency)}
                   </td>
-                  <td className="p-4">
+
+                  <td className="px-4 py-3.5">
                     <div className="flex items-center gap-1">
-                      <span className="text-slate-400">{currency}</span>
+                      <span className="text-slate-400 font-mono text-[11px]">{currency}</span>
                       <input
                         type="number"
                         min="0"
+                        aria-label={`Actual cost for ${item.name}`}
                         value={item.actualCost || ''}
-                        onChange={(e) => handleUpdateItem(item.id, { actualCost: Number(e.target.value) || 0 })}
+                        onChange={(e) => handleActualCostChange(item.id, e.target.value)}
                         placeholder="0"
-                        className="w-24 px-2 py-1 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-emerald-500 font-medium"
+                        className="w-20 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-rose-500"
                       />
                     </div>
                   </td>
-                  <td className="p-4">
+
+                  <td className="px-4 py-3.5">
                     <select
+                      aria-label={`Payment status for ${item.name}`}
                       value={item.paidStatus}
-                      onChange={(e) => handleUpdateItem(item.id, { paidStatus: e.target.value as BudgetItem['paidStatus'] })}
-                      className={`text-2xs font-semibold px-2 py-1 rounded-lg border-none cursor-pointer ${
+                      onChange={(e) =>
+                        handlePaidStatusChange(item.id, e.target.value as BudgetItem['paidStatus'])
+                      }
+                      className={`text-[11px] font-bold px-2 py-1 rounded-lg border focus:outline-none cursor-pointer ${
                         item.paidStatus === 'fully_paid'
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                           : item.paidStatus === 'deposit_paid'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-amber-100 text-amber-800'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
                       }`}
                     >
                       <option value="unpaid">Unpaid</option>
@@ -329,17 +396,20 @@ export const BudgetManager: React.FC<BudgetManagerProps> = ({
                       <option value="fully_paid">Fully Paid</option>
                     </select>
                   </td>
-                  <td className="p-4 text-slate-500 max-w-xs truncate">
-                    {item.notes || '-'}
+
+                  <td className="px-4 py-3.5 text-slate-500 max-w-xs truncate" title={item.notes}>
+                    {item.notes || '—'}
                   </td>
-                  <td className="p-4 text-right no-print">
+
+                  <td className="px-4 py-3.5 text-right">
                     <button
                       type="button"
                       onClick={() => handleDeleteItem(item.id)}
-                      className="text-slate-400 hover:text-rose-600 p-1 rounded-lg transition"
-                      title="Delete item"
+                      aria-label={`Delete ${item.name}`}
+                      title="Delete Item"
+                      className="text-slate-400 hover:text-rose-600 p-1 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-rose-400"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </td>
                 </tr>
@@ -350,5 +420,4 @@ export const BudgetManager: React.FC<BudgetManagerProps> = ({
       </div>
     </div>
   );
-};
-
+});

@@ -1,5 +1,8 @@
 import { Currency, CurrencyConfig, EventType, EventPlan, GeneratePlanRequest } from '@/types/event';
 
+/**
+ * Currency configuration dictionary mapping currency codes to symbols and descriptive names.
+ */
 export const CURRENCY_CONFIGS: Record<Currency, CurrencyConfig> = {
   USD: { code: 'USD', symbol: '$', name: 'US Dollar' },
   INR: { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
@@ -9,7 +12,15 @@ export const CURRENCY_CONFIGS: Record<Currency, CurrencyConfig> = {
   AUD: { code: 'AUD', symbol: 'AU$', name: 'Australian Dollar' },
 };
 
-export const EVENT_TYPE_OPTIONS: { id: EventType; label: string; icon: string; description: string }[] = [
+/**
+ * Supported celebration event types with icons, labels, and descriptions aligned with the challenge prompt.
+ */
+export const EVENT_TYPE_OPTIONS: readonly {
+  id: EventType;
+  label: string;
+  icon: string;
+  description: string;
+}[] = [
   {
     id: 'wedding',
     label: 'Wedding Celebration',
@@ -46,9 +57,12 @@ export const EVENT_TYPE_OPTIONS: { id: EventType; label: string; icon: string; d
     icon: '✨',
     description: 'Baby showers, graduation parties, housewarmings and reunions',
   },
-];
+] as const;
 
-export const PRESET_EVENTS: GeneratePlanRequest[] = [
+/**
+ * Instant-fill curated celebration presets for rapid demonstration.
+ */
+export const PRESET_EVENTS: readonly GeneratePlanRequest[] = [
   {
     eventType: 'wedding',
     title: 'Aura & Royal Botanical Wedding',
@@ -82,25 +96,39 @@ export const PRESET_EVENTS: GeneratePlanRequest[] = [
     vibe: 'Vibrant, Inclusive, Family-friendly with Folk Music & Artisan Food Trucks',
     specialRequirements: 'Wheelchair accessible ramps, local farmer vendor booths, interactive pottery workshop, zero-waste recycling station.',
   },
-];
+] as const;
 
+/**
+ * Formats a monetary amount into a clean currency string.
+ *
+ * @param amount - Number value to format
+ * @param currency - Currency code (USD, INR, EUR, etc.)
+ * @returns Formatted currency string (e.g., "$25,000", "₹1,50,000")
+ */
 export function formatCurrency(amount: number, currency: Currency): string {
   const config = CURRENCY_CONFIGS[currency] || CURRENCY_CONFIGS.USD;
-  return `${config.symbol}${amount.toLocaleString('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  })}`;
+  const safeAmount = Number.isFinite(amount) ? Math.round(amount) : 0;
+  return `${config.symbol}${safeAmount.toLocaleString('en-US')}`;
 }
 
+/**
+ * Generates an intelligent, tailored, structured EventPlan.
+ * Supports all 6 event types with domain-authentic themes, budgets, timelines, and vendor networks.
+ *
+ * @param request - GeneratePlanRequest containing event preferences
+ * @returns Complete EventPlan object
+ */
 export function generateFallbackPlan(request: GeneratePlanRequest): EventPlan {
   const total = request.totalBudget > 0 ? request.totalBudget : 10000;
   const curr = request.currency || 'USD';
   const type = request.eventType;
+  const planId = `plan-${Date.now()}`;
+  const nowIso = new Date().toISOString();
 
-  // Specific tailored suggestions per event type
+  // 1. Wedding Celebration
   if (type === 'wedding') {
     return {
-      id: `plan-${Date.now()}`,
+      id: planId,
       title: request.title || 'Dream Wedding Celebration',
       eventType: 'wedding',
       eventDate: request.eventDate,
@@ -110,7 +138,7 @@ export function generateFallbackPlan(request: GeneratePlanRequest): EventPlan {
       currency: curr,
       vibe: request.vibe,
       specialRequirements: request.specialRequirements || 'Customized wedding experience',
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
       ideas: {
         themeName: 'Ethereal Garden Bloom & Golden Candlelight',
         tagline: 'An unforgettable evening woven in romance, laughter, and timeless memories.',
@@ -178,9 +206,10 @@ export function generateFallbackPlan(request: GeneratePlanRequest): EventPlan {
     };
   }
 
+  // 2. Birthday Bash
   if (type === 'birthday') {
     return {
-      id: `plan-${Date.now()}`,
+      id: planId,
       title: request.title || 'Epic Birthday Celebration',
       eventType: 'birthday',
       eventDate: request.eventDate,
@@ -190,7 +219,7 @@ export function generateFallbackPlan(request: GeneratePlanRequest): EventPlan {
       currency: curr,
       vibe: request.vibe,
       specialRequirements: request.specialRequirements || 'Memorable themed party with high energy',
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
       ideas: {
         themeName: 'Midnight Neon & Electric Velvet Lounge',
         tagline: 'Level up another year of memories with electrifying music, immersive gaming, and great friends.',
@@ -254,19 +283,171 @@ export function generateFallbackPlan(request: GeneratePlanRequest): EventPlan {
     };
   }
 
-  // Default Community / Cultural Event
+  // 3. Anniversary & Milestone
+  if (type === 'anniversary') {
+    return {
+      id: planId,
+      title: request.title || 'Golden Milestone Anniversary',
+      eventType: 'anniversary',
+      eventDate: request.eventDate,
+      location: request.location,
+      guestCount: request.guestCount,
+      totalBudget: total,
+      currency: curr,
+      vibe: request.vibe,
+      specialRequirements: request.specialRequirements || 'Romantic nostalgia, tribute retrospective, multi-generational family warmth',
+      createdAt: nowIso,
+      ideas: {
+        themeName: 'A Tapestry of Gold: Celebrating Decades of Love',
+        tagline: 'Reflecting on an enduring journey of devotion, laughter, and family legacy.',
+        colorPalette: [
+          { name: 'Burnished Gold', hex: '#D4AF37' },
+          { name: 'Warm Cream', hex: '#FFFDD0' },
+          { name: 'Burgundy Velvet', hex: '#800020' },
+          { name: 'Olive Green', hex: '#556B2F' },
+          { name: 'Champagne Shimmer', hex: '#F7E7CE' },
+        ],
+        decorConcepts: [
+          'Illuminated retrospective memory walkway showcasing framed photos across the decades',
+          'Antique gold candelabras surrounded by white garden roses and olive branches',
+          'Custom velvet guestbook with family archival messages and golden ink pens',
+          'Ambient string lighting canopy and vintage champagne tower installation',
+        ],
+        interactiveActivities: [
+          'Vow renewal ceremony followed by surprise tribute speeches from children & grandchildren',
+          'Live swing or jazz quartet performing songs from the original wedding year',
+          'Vintage photo slideshow projected onto warm canvas during dinner',
+          'Commemorative champagne toast with custom engraved flutes for all guests',
+        ],
+        customFoodDrinkConcepts: [
+          'Signature Cocktail: "The Golden Jubilee" (Bourbon, spiced apple syrup, prosecco & gold leaf)',
+          'Multi-course wine-paired dinner inspired by the couple’s favorite travel destinations',
+          'Replica tiered wedding cake reimagined with modern artisanal flavors',
+          'Late-night dessert bar with macarons, chocolate truffles, and espresso martinis',
+        ],
+        invitationCopySnippet:
+          'Because you have shared in their lives and enriched their story, you are warmly invited to celebrate the milestone anniversary and enduring love of our parents.',
+        aiSuggestions: [
+          'Collect scanned historical family photographs 4 weeks in advance for seamless slide projection.',
+          'Schedule an acoustic sound check 1 hour prior to guests arrival to balance speech acoustics.',
+          'Arrange comfortable priority seating for senior family members near the stage.',
+        ],
+      },
+      budgetItems: [
+        { id: 'b1', category: 'Venue', name: 'Private Estate Courtyard & Dining Room', estimatedCost: Math.round(total * 0.36), actualCost: 0, paidStatus: 'deposit_paid', notes: 'Includes tables, linens, and private terrace' },
+        { id: 'b2', category: 'Catering & Drinks', name: 'Curated 4-Course Dinner & Wine Pairing', estimatedCost: Math.round(total * 0.34), actualCost: 0, paidStatus: 'unpaid', notes: 'Wine sommelier pairing included' },
+        { id: 'b3', category: 'Photography & Video', name: 'Documentary Photo & Audio Interview Package', estimatedCost: Math.round(total * 0.12), actualCost: 0, paidStatus: 'unpaid', notes: 'Includes family heritage video archive' },
+        { id: 'b4', category: 'Entertainment & Music', name: 'Live Jazz Quartet & Audio Technician', estimatedCost: Math.round(total * 0.08), actualCost: 0, paidStatus: 'unpaid', notes: '4-hour live acoustic set' },
+        { id: 'b5', category: 'Decor & Flowers', name: 'Gold Candelabras, Memory Wall & Florals', estimatedCost: Math.round(total * 0.07), actualCost: 0, paidStatus: 'unpaid', notes: 'Seasonal roses and archival framing' },
+        { id: 'b6', category: 'Stationery & Favors', name: 'Embossed Invitations & Engraved Keepsake Flutes', estimatedCost: Math.round(total * 0.03), actualCost: 0, paidStatus: 'unpaid', notes: 'Custom monogrammed favor boxes' },
+      ],
+      timeline: [
+        { id: 't1', phase: 'Planning Phase (Months Before)', title: 'Reserve Private Venue & Date', description: 'Lock in estate space and send out formal Save the Dates.', targetTimeframe: '4-5 months out', completed: true, priority: 'high' },
+        { id: 't2', phase: 'Vendor Locking (Weeks Before)', title: 'Gather Archival Photos & Video Clips', description: 'Digitize legacy prints and assemble slideshow reel.', targetTimeframe: '6 weeks out', completed: false, priority: 'high' },
+        { id: 't3', phase: 'Final Preparations (Week Of)', title: 'Finalize Seating Chart & Speeches Order', description: 'Confirm toast order with MC and send final headcount.', targetTimeframe: '5 days before', completed: false, priority: 'medium' },
+        { id: 't4', phase: 'Day-of Event (Run of Show)', title: 'Courtyard Floral & Memory Wall Setup', description: 'Arrange archival memory walk and table candelabras.', targetTimeframe: '03:00 PM', completed: false, priority: 'high', timeSlot: '03:00 PM' },
+        { id: 't5', phase: 'Day-of Event (Run of Show)', title: 'Guest Welcome & Champagne Reception', description: 'Jazz quartet begins; guests mingle and view memory gallery.', targetTimeframe: '05:30 PM', completed: false, priority: 'medium', timeSlot: '05:30 PM' },
+        { id: 't6', phase: 'Day-of Event (Run of Show)', title: 'Vow Renewal & Golden Toast', description: 'Heartfelt renewal exchange followed by family tribute speeches.', targetTimeframe: '06:45 PM', completed: false, priority: 'high', timeSlot: '06:45 PM' },
+        { id: 't7', phase: 'Day-of Event (Run of Show)', title: 'Plated Dinner & Retrospective Video', description: 'Four-course culinary service with archival video screening.', targetTimeframe: '07:30 PM', completed: false, priority: 'high', timeSlot: '07:30 PM' },
+      ],
+      vendors: [
+        { id: 'v1', category: 'Venue', vendorName: request.location || 'The Heritage Courtyard Estate', contactPerson: 'Clara Oswald', status: 'Booked', estimatedCost: Math.round(total * 0.36), notes: 'Outdoor heaters included.' },
+        { id: 'v2', category: 'Catering', vendorName: 'Sommelier & Savor Catering', contactPerson: 'Chef Antoine', status: 'Quoted', estimatedCost: Math.round(total * 0.34), notes: 'Tasting scheduled for family.' },
+        { id: 'v3', category: 'Photography', vendorName: 'Legacy Archive Studios', contactPerson: 'Julian Ross', status: 'Booked', estimatedCost: Math.round(total * 0.12), notes: 'Specializes in multi-generational portraits.' },
+        { id: 'v4', category: 'Music & DJ', vendorName: 'Velvet Strings & Jazz Quartet', contactPerson: 'Miles Vance', status: 'Contacted', estimatedCost: Math.round(total * 0.08), notes: 'Repertoire approved.' },
+      ],
+    };
+  }
+
+  // 4. Corporate & Networking
+  if (type === 'corporate') {
+    return {
+      id: planId,
+      title: request.title || 'Executive Leadership & Innovation Gala',
+      eventType: 'corporate',
+      eventDate: request.eventDate,
+      location: request.location,
+      guestCount: request.guestCount,
+      totalBudget: total,
+      currency: curr,
+      vibe: request.vibe,
+      specialRequirements: request.specialRequirements || 'High-impact keynote presentation, seamless AV, premier networking, executive hospitality',
+      createdAt: nowIso,
+      ideas: {
+        themeName: 'Catalyst: Pioneering The Next Frontier',
+        tagline: 'Fostering vision, meaningful connections, and celebratory industry breakthroughs.',
+        colorPalette: [
+          { name: 'Executive Navy', hex: '#0A192F' },
+          { name: 'Titanium Silver', hex: '#C0C0C0' },
+          { name: 'Innovation Cyan', hex: '#00D2D3' },
+          { name: 'Pure White', hex: '#FFFFFF' },
+          { name: 'Slate Gray', hex: '#4A5568' },
+        ],
+        decorConcepts: [
+          'High-definition LED video wall backdrop with synchronized dynamic motion graphics',
+          'Modern geometric stage design with directional spotlights and sleek acrylic podium',
+          'Interactive sponsor demonstration booths and branded executive meeting pods',
+          'Contemporary high-top cocktail tables with minimalist succulent centerpieces',
+        ],
+        interactiveActivities: [
+          'Speed networking rotations facilitated via digital conference mobile app',
+          'Live interactive polling with keynote results rendered in real time on stage screens',
+          'Annual Excellence Awards presentation with custom laser-cut crystal trophies',
+          'Closing executive cocktail social with live ambient lounge DJ',
+        ],
+        customFoodDrinkConcepts: [
+          'Elevated passed appetizers: Mini beef wellingtons, tuna tartare crisps, vegan truffle arancini',
+          'Custom Espresso & Nitro Cold Brew Bar with on-demand latte art',
+          'Signature Mocktail: "The Catalyst Spark" (Yuzu, ginger beer, clarified lime & rosemary smoke)',
+          'Artisan plated dinner catering to gluten-free, vegan, and kosher requirements',
+        ],
+        invitationCopySnippet:
+          'You are cordially invited to join industry leaders, founders, and innovators for an evening of vision, strategic connection, and celebration at the Annual Leadership Gala.',
+        aiSuggestions: [
+          'Perform a complete AV latency and wireless mic frequency check 3 hours before doors open.',
+          'Provide dedicated private lounge with high-speed Wi-Fi and power banks for VIP keynote speakers.',
+          'Pre-print color-coded NFC/QR badges organized alphabetically for rapid 2-minute registration.',
+        ],
+      },
+      budgetItems: [
+        { id: 'b1', category: 'Venue', name: 'Conference Center Ballroom & Breakout Wings', estimatedCost: Math.round(total * 0.32), actualCost: 0, paidStatus: 'deposit_paid', notes: 'Includes high-speed Wi-Fi and security' },
+        { id: 'b2', category: 'Logistics & Misc', name: 'Stage Production, LED Wall & Audio Engineering', estimatedCost: Math.round(total * 0.28), actualCost: 0, paidStatus: 'unpaid', notes: 'Professional broadcast-grade AV crew' },
+        { id: 'b3', category: 'Catering & Drinks', name: 'Executive Dinner, Coffee Bar & Cocktail Reception', estimatedCost: Math.round(total * 0.24), actualCost: 0, paidStatus: 'unpaid', notes: 'Dietary certified catering team' },
+        { id: 'b4', category: 'Stationery & Favors', name: 'Branded Lanyards, Welcome Packets & Awards', estimatedCost: Math.round(total * 0.08), actualCost: 0, paidStatus: 'unpaid', notes: 'Laser engraved crystal awards' },
+        { id: 'b5', category: 'Photography & Video', name: 'Keynote Recording & Executive Headshots Booth', estimatedCost: Math.round(total * 0.05), actualCost: 0, paidStatus: 'unpaid', notes: 'Full-day multi-camera capture' },
+        { id: 'b6', category: 'Entertainment & Music', name: 'Ambient Lounge DJ & Keynote Walk-up Stings', estimatedCost: Math.round(total * 0.03), actualCost: 0, paidStatus: 'unpaid', notes: 'Audio sting library prepared' },
+      ],
+      timeline: [
+        { id: 't1', phase: 'Planning Phase (Months Before)', title: 'Secure Keynote Speakers & Convention Space', description: 'Confirm speaker riders, travel accommodations, and venue contract.', targetTimeframe: '4-6 months out', completed: true, priority: 'high' },
+        { id: 't2', phase: 'Vendor Locking (Weeks Before)', title: 'Review AV Cue Sheets & Slide Presentations', description: 'Collect 16:9 presentation decks and test aspect ratios.', targetTimeframe: '3 weeks out', completed: false, priority: 'high' },
+        { id: 't3', phase: 'Final Preparations (Week Of)', title: 'Pre-Print Attendee Badges & Safety Walkthrough', description: 'Verify registration desk flow, fire exits, and dietary tags.', targetTimeframe: '2 days before', completed: false, priority: 'high' },
+        { id: 't4', phase: 'Day-of Event (Run of Show)', title: 'Technical Rehearsal & Speaker Mic Checks', description: 'Test lavalier microphones, slide clickers, and stage monitors.', targetTimeframe: '01:00 PM', completed: false, priority: 'high', timeSlot: '01:00 PM' },
+        { id: 't5', phase: 'Day-of Event (Run of Show)', title: 'Registration & Welcome Coffee Networking', description: 'Attendees arrive, collect badges, and enjoy barista bar.', targetTimeframe: '03:00 PM', completed: false, priority: 'medium', timeSlot: '03:00 PM' },
+        { id: 't6', phase: 'Day-of Event (Run of Show)', title: 'Opening Remarks & Keynote Addresses', description: 'Executive welcome followed by vision keynote and awards.', targetTimeframe: '04:15 PM', completed: false, priority: 'high', timeSlot: '04:15 PM' },
+        { id: 't7', phase: 'Day-of Event (Run of Show)', title: 'Networking Cocktail Reception & Dinner', description: 'Chef-curated dinner and networking in sponsor lounge.', targetTimeframe: '06:30 PM', completed: false, priority: 'medium', timeSlot: '06:30 PM' },
+      ],
+      vendors: [
+        { id: 'v1', category: 'Venue', vendorName: request.location || 'Metropolitan Convention Hall', contactPerson: 'David Miller', status: 'Booked', estimatedCost: Math.round(total * 0.32), notes: 'Loading dock access 8:00 AM.' },
+        { id: 'v2', category: 'Logistics & Rentals', vendorName: 'Apex AV & Staging Solutions', contactPerson: 'Tech Lead Chris', status: 'Booked', estimatedCost: Math.round(total * 0.28), notes: 'LED wall and wireless rig included.' },
+        { id: 'v3', category: 'Catering', vendorName: 'Premier Corporate Hospitality', contactPerson: 'Chef Laurent', status: 'Quoted', estimatedCost: Math.round(total * 0.24), notes: 'Coffee barista bar approved.' },
+        { id: 'v4', category: 'Photography', vendorName: 'ProMedia Summit Photographers', contactPerson: 'Amanda Cole', status: 'Booked', estimatedCost: Math.round(total * 0.05), notes: 'Headshot studio setup in lobby.' },
+      ],
+    };
+  }
+
+  // 5. Default Community & Cultural Event (and 'other')
   return {
-    id: `plan-${Date.now()}`,
+    id: planId,
     title: request.title || 'Community Celebration & Gathering',
-    eventType: 'community',
+    eventType: type === 'other' ? 'other' : 'community',
     eventDate: request.eventDate,
     location: request.location,
     guestCount: request.guestCount,
     totalBudget: total,
     currency: curr,
     vibe: request.vibe,
-    specialRequirements: request.specialRequirements || 'Inclusive, vibrant, community-oriented',
-    createdAt: new Date().toISOString(),
+    specialRequirements: request.specialRequirements || 'Inclusive, vibrant, community-oriented gathering',
+    createdAt: nowIso,
     ideas: {
       themeName: 'Unity In Bloom: Community Heritage & Arts Festival',
       tagline: 'Bringing neighbors, creators, and families together for a celebration of local culture and shared joy.',
@@ -323,11 +504,10 @@ export function generateFallbackPlan(request: GeneratePlanRequest): EventPlan {
       { id: 't9', phase: 'Day-of Event (Run of Show)', title: 'Site Teardown & Zero-Waste Cleanup', description: 'Waste audit, equipment return, and park grounds restored clean.', targetTimeframe: '06:30 PM', completed: false, priority: 'high', timeSlot: '06:30 PM' },
     ],
     vendors: [
-      { id: 'v1', category: 'Venue', vendorName: 'Municipal Parks & Recreation Dept', contactPerson: 'Officer Dan Garcia', status: 'Booked', estimatedCost: Math.round(total * 0.28), notes: 'Permit #PR-9823 approved.' },
+      { id: 'v1', category: 'Venue', vendorName: request.location || 'Municipal Parks & Recreation Dept', contactPerson: 'Officer Dan Garcia', status: 'Booked', estimatedCost: Math.round(total * 0.28), notes: 'Permit #PR-9823 approved.' },
       { id: 'v2', category: 'Logistics & Rentals', vendorName: 'Apex Stage & Canopy Rentals', contactPerson: 'Markus Vance', status: 'Booked', estimatedCost: Math.round(total * 0.25), notes: 'Stage, sound board, and 10 canopy tents.' },
       { id: 'v3', category: 'Music & DJ', vendorName: 'Harmony Sound & Tech Crew', contactPerson: 'Aaliyah Jones', status: 'Quoted', estimatedCost: Math.round(total * 0.20), notes: 'Sound engineer on site for 8 hours.' },
       { id: 'v4', category: 'Invitations & Favors', vendorName: 'GreenTree Eco Print Co.', contactPerson: 'Samira Patel', status: 'Booked', estimatedCost: Math.round(total * 0.12), notes: 'Recycled canvas banners and volunteer wristbands.' },
     ],
   };
 }
-

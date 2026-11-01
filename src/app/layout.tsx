@@ -4,6 +4,7 @@ import './globals.css';
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  themeColor: '#e11d48',
 };
 
 export const metadata: Metadata = {
@@ -29,8 +30,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full">
+    <html lang="en" className="h-full scroll-smooth">
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 antialiased selection:bg-rose-100 selection:text-rose-900">
+        {/* Skip Navigation Link for WCAG AAA Accessibility */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2.5 focus:bg-rose-600 focus:text-white focus:font-bold focus:text-sm focus:rounded-xl focus:shadow-xl focus:outline-none focus:ring-4 focus:ring-rose-300"
+        >
+          Skip to main content
+        </a>
         {children}
       </body>
     </html>

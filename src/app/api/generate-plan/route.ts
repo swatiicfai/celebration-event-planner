@@ -1,91 +1,153 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GeneratePlanRequest, EventType, Currency } from '@/types/event';
 import { generateEventPlanWithAI } from '@/lib/gemini';
+import { checkRateLimit, sanitizeString, isValidISODate, clampInteger } from '@/lib/security';
 
-const VALID_EVENT_TYPES: EventType[] = ['wedding', 'birthday', 'community', 'anniversary', 'corporate', 'other'];
-const VALID_CURRENCIES: Currency[] = ['USD', 'INR', 'EUR', 'GBP', 'CAD', 'AUD'];
+const VALID_EVENT_TYPES: readonly EventType[] = [
+  'wedding',
+  'birthday',
+  'community',
+  'anniversary',
+  'corporate',
+  'other',
+] as const;
 
-export async function POST(req: NextRequest) {
+const VALID_CURRENCIES: readonly Currency[] = [
+  'USD',
+  'INR',
+  'EUR',
+  'GBP',
+  'CAD',
+  'AUD',
+] as const;
+
+/**
+ * POST /api/generate-plan
+ *
+ * Secure server-side endpoint that handles AI generation of comprehensive event plans.
+ * Enforces rate limiting, strict input validation, XSS sanitization, and graceful fallback.
+ *
+ * @param req - NextRequest object
+ * @returns NextResponse with generated EventPlan data or structured error
+ */
+export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    const body = await req.json();
+    // 1. Rate Limiting Check
+    const clientIp =
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      req.headers.get('x-real-ip') ||
+      'anonymous-client';
 
-    // Input Validation
-    if (!body || typeof body !== 'object') {
+    const rateLimit = checkRateLimit(clientIp, 15, 60000);
+    if (!rateLimit.allowed) {
       return NextResponse.json(
-        { error: 'Invalid request payload. Expected JSON object.' },
+        {
+          error: 'Too many requests. Please wait before generating another event plan.',
+          retryAfterMs: Math.max(0, rateLimit.resetTimeMs - Date.now()),
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': '60',
+            'X-RateLimit-Limit': '15',
+            'X-RateLimit-Remaining': '0',
+          },
+        }
+      );
+    }
+
+    // 2. Parse & Validate Payload
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON request payload.' },
         { status: 400 }
       );
     }
 
-    const {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json(
+        { error: 'Invalid request payload. Expected a JSON object.' },
+        { status: 400 }
+      );
+    }
+
+    const raw = body as Record<string, unknown>;
+
+    // 3. Validate Event Type
+    const eventType = raw.eventType as EventType;
+    if (!eventType || !VALID_EVENT_TYPES.includes(eventType)) {
+      return NextResponse.json(
+        {
+          error: `Invalid event type. Supported categories: ${VALID_EVENT_TYPES.join(', ')}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // 4. Validate and Sanitize Date
+    const rawDate = typeof raw.eventDate === 'string' ? raw.eventDate.trim() : '';
+    const safeDate = isValidISODate(rawDate)
+      ? rawDate
+      : new Date().toISOString().split('T')[0];
+
+    // 5. Validate Numbers (Guest Count & Budget)
+    const guestCount = clampInteger(raw.guestCount, 1, 100000, 100);
+    const totalBudget = clampInteger(raw.totalBudget, 100, 100000000, 10000);
+
+    // 6. Validate Currency
+    const currencyCandidate = raw.currency as Currency;
+    const currency: Currency = VALID_CURRENCIES.includes(currencyCandidate)
+      ? currencyCandidate
+      : 'USD';
+
+    // 7. Sanitize Strings (Prevent XSS and script injection)
+    const title = sanitizeString(raw.title, 100) || `${eventType.toUpperCase()} Celebration`;
+    const location = sanitizeString(raw.location, 120) || 'Custom Venue';
+    const vibe =
+      sanitizeString(raw.vibe, 300) ||
+      'Elegant, joyful, and meticulously coordinated celebration';
+    const specialRequirements = sanitizeString(raw.specialRequirements, 500);
+
+    const sanitizedRequest: GeneratePlanRequest = {
       eventType,
       title,
-      eventDate,
+      eventDate: safeDate,
       location,
       guestCount,
       totalBudget,
       currency,
       vibe,
       specialRequirements,
-    } = body;
-
-    // Validate Event Type
-    if (!eventType || !VALID_EVENT_TYPES.includes(eventType)) {
-      return NextResponse.json(
-        { error: `Invalid event type. Must be one of: ${VALID_EVENT_TYPES.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // Validate Numbers
-    const parsedGuests = Number(guestCount);
-    if (isNaN(parsedGuests) || parsedGuests <= 0 || parsedGuests > 100000) {
-      return NextResponse.json(
-        { error: 'Guest count must be a positive integer between 1 and 100,000.' },
-        { status: 400 }
-      );
-    }
-
-    const parsedBudget = Number(totalBudget);
-    if (isNaN(parsedBudget) || parsedBudget <= 0) {
-      return NextResponse.json(
-        { error: 'Total budget must be a positive number greater than 0.' },
-        { status: 400 }
-      );
-    }
-
-    // Validate Currency
-    const validCurrency: Currency = VALID_CURRENCIES.includes(currency) ? currency : 'USD';
-
-    // Sanitize Strings
-    const sanitizedRequest: GeneratePlanRequest = {
-      eventType,
-      title: typeof title === 'string' && title.trim().length > 0 ? title.trim().slice(0, 100) : `${eventType.toUpperCase()} Celebration`,
-      eventDate: typeof eventDate === 'string' && eventDate.trim().length > 0 ? eventDate.trim() : new Date().toISOString().split('T')[0],
-      location: typeof location === 'string' && location.trim().length > 0 ? location.trim().slice(0, 120) : 'Custom Venue',
-      guestCount: Math.round(parsedGuests),
-      totalBudget: Math.round(parsedBudget),
-      currency: validCurrency,
-      vibe: typeof vibe === 'string' && vibe.trim().length > 0 ? vibe.trim().slice(0, 300) : 'Elegant, memorable, and celebratory',
-      specialRequirements: typeof specialRequirements === 'string' ? specialRequirements.trim().slice(0, 500) : '',
     };
 
+    // 8. Invoke Gemini AI or Local Planning Engine
     const plan = await generateEventPlanWithAI(sanitizedRequest);
 
-    return NextResponse.json({
-      success: true,
-      data: plan,
-      generatedWith: process.env.GEMINI_API_KEY ? 'Google Gemini GenAI' : 'Autonomous AI Planning Engine',
-    });
-  } catch (error: unknown) {
-    console.error('Error generating event plan:', error);
     return NextResponse.json(
       {
-        error: 'Failed to generate event plan. Please check your inputs and try again.',
-        details: process.env.NODE_ENV === 'development' ? (error as Error)?.message : undefined,
+        success: true,
+        data: plan,
+        generatedWith: process.env.GEMINI_API_KEY
+          ? 'Google Gemini GenAI'
+          : 'Autonomous AI Planning Engine',
+      },
+      {
+        headers: {
+          'X-RateLimit-Limit': '15',
+          'X-RateLimit-Remaining': String(rateLimit.remaining),
+        },
+      }
+    );
+  } catch (error: unknown) {
+    console.error('Error in /api/generate-plan:', error);
+    return NextResponse.json(
+      {
+        error: 'Failed to process event plan generation. Please verify your inputs.',
       },
       { status: 500 }
     );
   }
 }
-

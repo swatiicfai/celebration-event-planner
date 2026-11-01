@@ -10,6 +10,14 @@ export interface BudgetMetrics {
   categoryBreakdown: Record<string, { estimated: number; actual: number; count: number }>;
 }
 
+/**
+ * Calculates itemized financial metrics, remaining balances, payment progress,
+ * and category expenditure distribution.
+ *
+ * @param items - Array of BudgetItem entries
+ * @param totalBudget - Total allocated budget for the celebration
+ * @returns BudgetMetrics with calculated financial metrics
+ */
 export function calculateBudgetMetrics(items: BudgetItem[], totalBudget: number): BudgetMetrics {
   let totalEstimated = 0;
   let totalActual = 0;
@@ -17,20 +25,21 @@ export function calculateBudgetMetrics(items: BudgetItem[], totalBudget: number)
   const categoryBreakdown: Record<string, { estimated: number; actual: number; count: number }> = {};
 
   for (const item of items) {
-    totalEstimated += Number(item.estimatedCost) || 0;
+    const est = Number(item.estimatedCost) || 0;
     const actual = Number(item.actualCost) || 0;
+    totalEstimated += est;
     totalActual += actual;
 
     if (item.paidStatus === 'fully_paid') {
-      totalPaid += actual > 0 ? actual : Number(item.estimatedCost) || 0;
+      totalPaid += actual > 0 ? actual : est;
     } else if (item.paidStatus === 'deposit_paid') {
-      totalPaid += Math.round((actual > 0 ? actual : Number(item.estimatedCost) || 0) * 0.5);
+      totalPaid += Math.round((actual > 0 ? actual : est) * 0.5);
     }
 
     if (!categoryBreakdown[item.category]) {
       categoryBreakdown[item.category] = { estimated: 0, actual: 0, count: 0 };
     }
-    categoryBreakdown[item.category].estimated += Number(item.estimatedCost) || 0;
+    categoryBreakdown[item.category].estimated += est;
     categoryBreakdown[item.category].actual += actual;
     categoryBreakdown[item.category].count += 1;
   }
@@ -58,6 +67,12 @@ export interface TimelineProgress {
   groupedByPhase: Record<string, TimelineMilestone[]>;
 }
 
+/**
+ * Evaluates completion rates and groups milestones across chronological phases.
+ *
+ * @param milestones - Array of TimelineMilestone entries
+ * @returns TimelineProgress summary
+ */
 export function calculateTimelineProgress(milestones: TimelineMilestone[]): TimelineProgress {
   const total = milestones.length;
   const completed = milestones.filter((m) => m.completed).length;
@@ -90,6 +105,12 @@ export interface VendorStats {
   bookedPercent: number;
 }
 
+/**
+ * Aggregates vendor booking pipeline numbers and conversion rates.
+ *
+ * @param vendors - Array of VendorItem entries
+ * @returns VendorStats summary
+ */
 export function calculateVendorStats(vendors: VendorItem[]): VendorStats {
   const total = vendors.length;
   const bookedCount = vendors.filter((v) => v.status === 'Booked' || v.status === 'Completed').length;
@@ -108,15 +129,29 @@ export function calculateVendorStats(vendors: VendorItem[]): VendorStats {
   };
 }
 
+/**
+ * Computes remaining calendar days until celebration target date.
+ *
+ * @param targetDateStr - ISO date string
+ * @returns Formatted days remaining object
+ */
 export function getDaysRemaining(targetDateStr: string): { days: number; isPast: boolean; label: string } {
   try {
+    const target = new Date(targetDateStr);
+    if (isNaN(target.getTime())) {
+      return { days: 0, isPast: false, label: 'Date pending' };
+    }
+
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    const target = new Date(targetDateStr);
     target.setHours(0, 0, 0, 0);
 
     const diffMs = target.getTime() - now.getTime();
     const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+    if (isNaN(days)) {
+      return { days: 0, isPast: false, label: 'Date pending' };
+    }
 
     if (days < 0) {
       return { days: Math.abs(days), isPast: true, label: `${Math.abs(days)} days ago` };
@@ -131,4 +166,3 @@ export function getDaysRemaining(targetDateStr: string): { days: number; isPast:
     return { days: 0, isPast: false, label: 'Date pending' };
   }
 }
-

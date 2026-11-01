@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import { Sparkles, PlusCircle, Printer, Download, RefreshCw } from 'lucide-react';
 import { Currency, EventPlan } from '@/types/event';
 import { CURRENCY_CONFIGS } from '@/lib/constants';
@@ -16,7 +16,11 @@ interface HeaderProps {
   isLoading: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({
+/**
+ * Top application header providing preset switching, multi-currency conversion,
+ * PDF dossier printing, and JSON export capabilities.
+ */
+export const Header: React.FC<HeaderProps> = memo(function Header({
   currentCurrency,
   onCurrencyChange,
   onOpenCreateModal,
@@ -25,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   onExportJSON,
   eventPlan,
   isLoading,
-}) => {
+}): React.ReactElement {
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm no-print">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -52,15 +56,19 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Quick Preset Actions & Controls */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Quick Presets Dropdown / Buttons */}
-            <div className="hidden lg:flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-medium text-slate-600">
+            {/* Quick Presets Buttons */}
+            <div
+              role="group"
+              aria-label="Preset event templates"
+              className="hidden lg:flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-medium text-slate-600"
+            >
               <span className="px-2 text-slate-400">Presets:</span>
               <button
                 type="button"
                 onClick={() => onLoadPreset(0)}
                 disabled={isLoading}
-                className="px-2.5 py-1 rounded-lg hover:bg-white hover:text-slate-900 hover:shadow-xs transition disabled:opacity-50"
-                title="Load Luxury Wedding Preset"
+                aria-label="Load Luxury Wedding Preset"
+                className="px-2.5 py-1 rounded-lg hover:bg-white hover:text-slate-900 hover:shadow-xs transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-rose-500"
               >
                 💍 Wedding
               </button>
@@ -68,8 +76,8 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={() => onLoadPreset(1)}
                 disabled={isLoading}
-                className="px-2.5 py-1 rounded-lg hover:bg-white hover:text-slate-900 hover:shadow-xs transition disabled:opacity-50"
-                title="Load Neon Birthday Preset"
+                aria-label="Load Neon Birthday Preset"
+                className="px-2.5 py-1 rounded-lg hover:bg-white hover:text-slate-900 hover:shadow-xs transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-rose-500"
               >
                 🎂 Birthday
               </button>
@@ -77,8 +85,8 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={() => onLoadPreset(2)}
                 disabled={isLoading}
-                className="px-2.5 py-1 rounded-lg hover:bg-white hover:text-slate-900 hover:shadow-xs transition disabled:opacity-50"
-                title="Load Community Fair Preset"
+                aria-label="Load Community Fair Preset"
+                className="px-2.5 py-1 rounded-lg hover:bg-white hover:text-slate-900 hover:shadow-xs transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-rose-500"
               >
                 🏘️ Community
               </button>
@@ -93,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
                 id="currency-select"
                 value={currentCurrency}
                 onChange={(e) => onCurrencyChange(e.target.value as Currency)}
-                className="text-xs sm:text-sm bg-slate-100 hover:bg-slate-200 border-none rounded-xl px-2.5 py-2 font-medium text-slate-700 focus:ring-2 focus:ring-rose-500 cursor-pointer transition"
+                className="bg-slate-100 text-slate-800 text-xs sm:text-sm font-semibold rounded-xl px-2.5 py-2 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
               >
                 {Object.values(CURRENCY_CONFIGS).map((curr) => (
                   <option key={curr.code} value={curr.code}>
@@ -103,38 +111,36 @@ export const Header: React.FC<HeaderProps> = ({
               </select>
             </div>
 
-            {/* Print / Export Button */}
-            {eventPlan && (
-              <div className="flex items-center gap-1 sm:gap-2">
-                <button
-                  type="button"
-                  onClick={onPrintDossier}
-                  aria-label="Print or Save PDF Dossier"
-                  title="Print / Save PDF Master Dossier"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition shadow-2xs"
-                >
-                  <Printer className="w-4 h-4 text-slate-600" aria-hidden="true" />
-                  <span className="hidden sm:inline">Export PDF</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={onExportJSON}
-                  aria-label="Export Event JSON"
-                  title="Export raw JSON"
-                  className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition shadow-2xs"
-                >
-                  <Download className="w-4 h-4 text-slate-600" aria-hidden="true" />
-                  <span>JSON</span>
-                </button>
-              </div>
-            )}
+            {/* Export Actions */}
+            <button
+              type="button"
+              onClick={onPrintDossier}
+              aria-label="Export Master Dossier as PDF"
+              title="Export PDF Master Dossier"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-rose-500"
+            >
+              <Printer className="w-4 h-4 text-slate-500" aria-hidden="true" />
+              <span className="hidden sm:inline">Export PDF</span>
+            </button>
 
-            {/* Create New Plan Button */}
+            <button
+              type="button"
+              onClick={onExportJSON}
+              disabled={!eventPlan}
+              aria-label="Export Event Plan as JSON backup"
+              title="Export Raw JSON"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-rose-500"
+            >
+              <Download className="w-4 h-4 text-slate-500" aria-hidden="true" />
+              <span>JSON</span>
+            </button>
+
+            {/* Plan New Event Button */}
             <button
               type="button"
               onClick={onOpenCreateModal}
               disabled={isLoading}
-              className="inline-flex items-center gap-1.5 sm:gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 rounded-xl shadow-md shadow-rose-200 active:scale-95 transition disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 rounded-xl shadow-sm shadow-rose-200 hover:shadow-md transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-rose-500"
             >
               {isLoading ? (
                 <>
@@ -144,8 +150,7 @@ export const Header: React.FC<HeaderProps> = ({
               ) : (
                 <>
                   <PlusCircle className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden xs:inline">New Event Plan</span>
-                  <span className="xs:hidden">New</span>
+                  <span>New Plan</span>
                 </>
               )}
             </button>
@@ -154,5 +159,4 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
     </header>
   );
-};
-
+});

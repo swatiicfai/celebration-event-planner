@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { X, Sparkles, Wand2 } from 'lucide-react';
 import { EventType, Currency, GeneratePlanRequest } from '@/types/event';
 import { EVENT_TYPE_OPTIONS, CURRENCY_CONFIGS, PRESET_EVENTS } from '@/lib/constants';
@@ -13,7 +13,7 @@ interface EventFormModalProps {
   initialData?: GeneratePlanRequest | null;
 }
 
-const VIBE_SUGGESTIONS: Record<EventType, string[]> = {
+const VIBE_SUGGESTIONS: Record<EventType, readonly string[]> = {
   wedding: [
     'Romantic Botanical Glasshouse with Fairy Lights',
     'Modern Glamour & Black Tie Champagne Soiree',
@@ -47,15 +47,19 @@ const VIBE_SUGGESTIONS: Record<EventType, string[]> = {
     'Celebratory Graduation Fiesta with Food Trucks & DJ',
     'Cozy Autumn Housewarming with Spiced Cider & Grazing Boards',
   ],
-};
+} as const;
 
-export const EventFormModal: React.FC<EventFormModalProps> = ({
+/**
+ * Event creation modal dialog empowering users to define custom event briefs,
+ * select event vibes, and trigger AI generation.
+ */
+export const EventFormModal: React.FC<EventFormModalProps> = memo(function EventFormModal({
   isOpen,
   onClose,
   onSubmit,
   isLoading,
   initialData,
-}) => {
+}): React.ReactElement | null {
   const [eventType, setEventType] = useState<EventType>('wedding');
   const [title, setTitle] = useState('');
   const [eventDate, setEventDate] = useState('');
@@ -68,7 +72,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
 
   // Handle ESC key to close modal
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
       if (e.key === 'Escape' && isOpen && !isLoading) {
         onClose();
       }
@@ -80,146 +84,140 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
   // Set default initial data
   useEffect(() => {
     if (initialData) {
-      setEventType(initialData.eventType);
+      setEventType(initialData.eventType || 'wedding');
       setTitle(initialData.title || '');
-      setEventDate(initialData.eventDate);
-      setLocation(initialData.location);
-      setGuestCount(initialData.guestCount);
-      setTotalBudget(initialData.totalBudget);
-      setCurrency(initialData.currency);
-      setVibe(initialData.vibe);
+      setEventDate(initialData.eventDate || '');
+      setLocation(initialData.location || '');
+      setGuestCount(initialData.guestCount || 100);
+      setTotalBudget(initialData.totalBudget || 15000);
+      setCurrency(initialData.currency || 'USD');
+      setVibe(initialData.vibe || '');
       setSpecialRequirements(initialData.specialRequirements || '');
     } else {
-      // Default future date
-      const future = new Date();
-      future.setMonth(future.getMonth() + 4);
-      setEventDate(future.toISOString().split('T')[0]);
-      setLocation('Hilltop Glasshouse & Gardens');
-      setVibe('Romantic botanical elegance with warm candlelight and acoustic soul');
-      setSpecialRequirements('Dietary options for vegan guests, biodegradable confetti, live acoustic music.');
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 90);
+      setEventDate(tomorrow.toISOString().split('T')[0]);
     }
   }, [initialData, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     await onSubmit({
       eventType,
       title: title.trim() || undefined,
-      eventDate,
-      location,
-      guestCount,
-      totalBudget,
+      eventDate: eventDate || new Date().toISOString().split('T')[0],
+      location: location.trim() || 'Custom Venue',
+      guestCount: Math.max(1, guestCount),
+      totalBudget: Math.max(100, totalBudget),
       currency,
-      vibe: vibe.trim() || 'Joyful and memorable celebration',
+      vibe: vibe.trim() || 'Magical, unforgettable, and elegant',
       specialRequirements: specialRequirements.trim() || undefined,
     });
   };
 
-  const loadPreset = (presetIndex: number) => {
-    const p = PRESET_EVENTS[presetIndex];
-    if (!p) return;
-    setEventType(p.eventType);
-    setTitle(p.title || '');
-    setEventDate(p.eventDate);
-    setLocation(p.location);
-    setGuestCount(p.guestCount);
-    setTotalBudget(p.totalBudget);
-    setCurrency(p.currency);
-    setVibe(p.vibe);
-    setSpecialRequirements(p.specialRequirements || '');
+  const loadPreset = (presetIndex: number): void => {
+    const preset = PRESET_EVENTS[presetIndex];
+    if (preset) {
+      setEventType(preset.eventType);
+      setTitle(preset.title || '');
+      setEventDate(preset.eventDate);
+      setLocation(preset.location);
+      setGuestCount(preset.guestCount);
+      setTotalBudget(preset.totalBudget);
+      setCurrency(preset.currency);
+      setVibe(preset.vibe);
+      setSpecialRequirements(preset.specialRequirements || '');
+    }
   };
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="modal-title"
-      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6"
+      aria-labelledby="modal-plan-title"
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6"
     >
-      <div className="relative bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden my-8">
+      <div className="relative bg-white rounded-3xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden my-8">
         {/* Modal Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center text-white">
-              <Sparkles className="w-5 h-5" />
+        <div className="bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 p-6 text-white relative">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-xs">
+                <Sparkles className="w-5 h-5 text-white" aria-hidden="true" />
+              </div>
+              <div>
+                <h2 id="modal-plan-title" className="text-xl font-extrabold tracking-tight">
+                  Design Your Celebration Plan
+                </h2>
+                <p className="text-xs text-rose-100">
+                  Powered by Google Gemini GenAI Planning Engine
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 id="modal-title" className="text-lg sm:text-xl font-bold text-slate-900">
-                Generate AI Event Master Plan
-              </h2>
-              <p className="text-xs text-slate-500">
-                Tailored budgets, timelines, supplier checklists & personalized themes.
-              </p>
-            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+              aria-label="Close dialog"
+              className="text-white/80 hover:text-white p-1 rounded-xl transition hover:bg-white/10 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-white"
+            >
+              <X className="w-5 h-5" aria-hidden="true" />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isLoading}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
-            aria-label="Close dialog"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Quick Demo Fill Buttons */}
-        <div className="bg-slate-50 px-6 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2 overflow-x-auto text-xs">
-          <span className="text-slate-500 font-medium whitespace-nowrap">Quick Pre-fill:</span>
-          <div className="flex items-center gap-1.5">
+          {/* Quick Preset Fill Buttons */}
+          <div className="mt-4 pt-3 border-t border-white/20 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold text-rose-100">Quick Fill Preset:</span>
             <button
               type="button"
               onClick={() => loadPreset(0)}
-              className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:border-rose-400 font-medium text-2xs transition"
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/20 hover:bg-white/30 text-white transition focus:outline-none focus:ring-2 focus:ring-white"
             >
-              💍 Luxury Wedding
+              💍 Wedding
             </button>
             <button
               type="button"
               onClick={() => loadPreset(1)}
-              className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:border-pink-400 font-medium text-2xs transition"
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/20 hover:bg-white/30 text-white transition focus:outline-none focus:ring-2 focus:ring-white"
             >
-              🎂 30th Birthday
+              🎂 Birthday
             </button>
             <button
               type="button"
               onClick={() => loadPreset(2)}
-              className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:border-amber-400 font-medium text-2xs transition"
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/20 hover:bg-white/30 text-white transition focus:outline-none focus:ring-2 focus:ring-white"
             >
-              🏘️ Community Fair
+              🏘️ Community
             </button>
           </div>
         </div>
 
-        {/* Form Body */}
+        {/* Modal Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
           {/* Event Type Grid */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-2">
+            <label className="text-xs font-bold text-slate-700 block mb-2">
               Select Celebration Category *
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {EVENT_TYPE_OPTIONS.map((opt) => (
+              {EVENT_TYPE_OPTIONS.map((type) => (
                 <button
-                  key={opt.id}
+                  key={type.id}
                   type="button"
-                  onClick={() => setEventType(opt.id)}
-                  className={`p-2.5 rounded-2xl border text-left flex items-start gap-2 transition ${
-                    eventType === opt.id
-                      ? 'border-rose-500 bg-rose-50/70 ring-1 ring-rose-500'
-                      : 'border-slate-200 hover:border-slate-300 bg-white'
+                  onClick={() => setEventType(type.id)}
+                  className={`p-3 rounded-2xl border text-left transition flex items-center gap-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500 ${
+                    eventType === type.id
+                      ? 'border-rose-500 bg-rose-50/60 ring-2 ring-rose-400/30'
+                      : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
                   }`}
                 >
-                  <span className="text-xl">{opt.icon}</span>
-                  <div className="overflow-hidden">
-                    <span className="text-xs font-bold text-slate-900 block truncate">
-                      {opt.label.split(' ')[0]}
-                    </span>
-                    <span className="text-2xs text-slate-500 block truncate">
-                      {opt.label}
+                  <span className="text-xl" aria-hidden="true">{type.icon}</span>
+                  <div>
+                    <span className="text-xs font-extrabold text-slate-900 block leading-tight">
+                      {type.label}
                     </span>
                   </div>
                 </button>
@@ -227,165 +225,168 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             </div>
           </div>
 
-          {/* Event Title */}
+          {/* Title & Date */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="form-event-title" className="text-xs font-semibold text-slate-700 block mb-1">
+                Event Title
+              </label>
+              <input
+                id="form-event-title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Maya & Arjun's Sangeet"
+                className="w-full text-xs rounded-xl border border-slate-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="form-event-date" className="text-xs font-semibold text-slate-700 block mb-1">
+                Target Date *
+              </label>
+              <input
+                id="form-event-date"
+                type="date"
+                required
+                value={eventDate}
+                onChange={(e) => setEventDate(e.target.value)}
+                className="w-full text-xs rounded-xl border border-slate-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500"
+              />
+            </div>
+          </div>
+
+          {/* Location / Venue Style */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Event Title / Honoree Name (Optional)
+            <label htmlFor="form-location" className="text-xs font-semibold text-slate-700 block mb-1">
+              Venue / Location Style *
             </label>
             <input
+              id="form-location"
               type="text"
-              placeholder="e.g. Liam & Maya’s Glasshouse Wedding, or Lucas's 10th Birthday"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+              required
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. Waterfront Pavilion, Botanic Gardens, or Backyard Tent"
+              className="w-full text-xs rounded-xl border border-slate-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500"
             />
           </div>
 
-          {/* Date & Location */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Event Date *
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  required
-                  value={eventDate}
-                  onChange={(e) => setEventDate(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Location or Venue Style *
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Hilltop Glasshouse, Downtown Loft, Town Park"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-500"
-              />
-            </div>
-          </div>
-
           {/* Guest Count, Budget & Currency */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label htmlFor="form-guest-count" className="text-xs font-semibold text-slate-700 block mb-1">
                 Expected Guests *
               </label>
               <input
+                id="form-guest-count"
                 type="number"
                 required
                 min="1"
-                max="50000"
+                max="100000"
                 value={guestCount}
-                onChange={(e) => setGuestCount(Math.max(1, Number(e.target.value) || 1))}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-500"
+                onChange={(e) => setGuestCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                className="w-full text-xs rounded-xl border border-slate-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label htmlFor="form-total-budget" className="text-xs font-semibold text-slate-700 block mb-1">
                 Total Budget *
               </label>
               <input
+                id="form-total-budget"
                 type="number"
                 required
                 min="100"
-                step="500"
                 value={totalBudget}
-                onChange={(e) => setTotalBudget(Math.max(100, Number(e.target.value) || 100))}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-500"
+                onChange={(e) => setTotalBudget(Math.max(100, parseInt(e.target.value, 10) || 100))}
+                className="w-full text-xs rounded-xl border border-slate-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label htmlFor="form-currency" className="text-xs font-semibold text-slate-700 block mb-1">
                 Currency
               </label>
               <select
+                id="form-currency"
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value as Currency)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-500 font-medium"
+                className="w-full text-xs rounded-xl border border-slate-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
               >
                 {Object.values(CURRENCY_CONFIGS).map((c) => (
                   <option key={c.code} value={c.code}>
-                    {c.code} ({c.symbol}) - {c.name}
+                    {c.code} ({c.symbol})
                   </option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Vibe & Aesthetic */}
+          {/* Vibe / Atmosphere */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-bold text-slate-700">
-                Desired Vibe & Atmosphere *
+              <label htmlFor="form-vibe" className="text-xs font-semibold text-slate-700">
+                Desired Vibe & Aesthetic *
               </label>
-              <span className="text-2xs text-slate-400">Tap a suggestion or type below</span>
+              <span className="text-[11px] text-slate-400">Click a vibe suggestion below</span>
             </div>
-
-            {/* Quick Chips */}
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {(VIBE_SUGGESTIONS[eventType] || []).map((sug, idx) => (
+            <textarea
+              id="form-vibe"
+              required
+              rows={2}
+              value={vibe}
+              onChange={(e) => setVibe(e.target.value)}
+              placeholder="e.g. Boho chic sunset garden with acoustic folk music and warm candlelight"
+              className="w-full text-xs rounded-xl border border-slate-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500"
+            />
+            {/* Quick Vibe Pill Suggestions */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {(VIBE_SUGGESTIONS[eventType] || VIBE_SUGGESTIONS.wedding).map((suggestion, idx) => (
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => setVibe(sug)}
-                  className="px-2.5 py-1 text-2xs rounded-lg bg-slate-100 hover:bg-rose-100 hover:text-rose-800 text-slate-600 transition text-left"
+                  onClick={() => setVibe(suggestion)}
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 transition"
                 >
-                  + {sug}
+                  + {suggestion}
                 </button>
               ))}
             </div>
-
-            <textarea
-              required
-              rows={2}
-              placeholder="e.g. Warm bohemian, string quartets, lush florals, cozy candlelit dinner"
-              value={vibe}
-              onChange={(e) => setVibe(e.target.value)}
-              className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-500"
-            />
           </div>
 
           {/* Special Requirements */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Special Requests / Dietary / Accessibility (Optional)
+            <label htmlFor="form-special-req" className="text-xs font-semibold text-slate-700 block mb-1">
+              Special Requirements & Accessibility Needs
             </label>
-            <input
-              type="text"
-              placeholder="e.g. Wheelchair ramps required, gluten-free catering, child-safe activity zone, signature gin bar"
+            <textarea
+              id="form-special-req"
+              rows={2}
               value={specialRequirements}
               onChange={(e) => setSpecialRequirements(e.target.value)}
-              className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-500"
+              placeholder="e.g. Wheelchair accessible ramps, vegan & gluten-free options, drone footage, eco-friendly confetti"
+              className="w-full text-xs rounded-xl border border-slate-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500"
             />
           </div>
 
-          {/* Submit Button */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+          {/* Form Actions */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition"
+              className="px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="inline-flex items-center gap-2 px-6 py-2.5 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-rose-600 via-pink-600 to-amber-500 hover:from-rose-500 hover:to-pink-500 rounded-xl shadow-md shadow-rose-200 disabled:opacity-50 transition"
+              className="inline-flex items-center gap-2 px-6 py-2.5 text-xs font-extrabold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 rounded-xl shadow-md shadow-rose-200 hover:shadow-lg transition disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-rose-500"
             >
-              <Wand2 className="w-4 h-4" />
+              <Wand2 className="w-4 h-4" aria-hidden="true" />
               <span>{isLoading ? 'Generating Master Plan...' : 'Generate AI Event Plan'}</span>
             </button>
           </div>
@@ -393,5 +394,4 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
       </div>
     </div>
   );
-};
-
+});
